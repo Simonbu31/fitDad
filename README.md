@@ -3,7 +3,7 @@
 A super simple workout tracker built for one person: my dad, starting his
 3-month strength training plan.
 
-**Live app:** https://simonbu31.github.io/fit-dad/
+**Live app:** https://simonbu31.github.io/fitDad/
 
 ## What it does
 
