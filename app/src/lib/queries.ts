@@ -56,6 +56,23 @@ export type SetToSave = {
   is_pr: boolean
 }
 
+export async function fetchNotifyTopic(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('notify_topic')
+    .eq('id', userId)
+    .maybeSingle()
+  if (error) throw error
+  return data?.notify_topic ?? null
+}
+
+export async function saveNotifyTopic(userId: string, topic: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ id: userId, notify_topic: topic })
+  if (error) throw error
+}
+
 export async function saveWorkout(startedAt: string, sets: SetToSave[]): Promise<string> {
   const { data: workout, error: wErr } = await supabase
     .from('workouts')

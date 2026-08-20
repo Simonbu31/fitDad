@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
 import { fetchFinishedWorkouts, type WorkoutWithSets } from '../lib/queries'
 import { computeExerciseHistory } from '../lib/stats'
 import { computeStreak } from '../lib/streak'
@@ -7,11 +6,13 @@ import { EXERCISES } from '../lib/exercises'
 import StreakCalendar from '../components/StreakCalendar'
 import ExerciseChart from '../components/ExerciseChart'
 
-export default function Progress() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const justSaved = (location.state as { justSaved?: boolean } | null)?.justSaved
+type ProgressProps = {
+  justSaved: boolean
+  onHome: () => void
+  onStartWorkout: () => void
+}
 
+export default function Progress({ justSaved, onHome, onStartWorkout }: ProgressProps) {
   const [workouts, setWorkouts] = useState<WorkoutWithSets[] | null>(null)
   const [error, setError] = useState(false)
 
@@ -46,7 +47,7 @@ export default function Progress() {
   return (
     <div className="min-h-dvh bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50">
       <div className="max-w-md mx-auto px-6 py-6 flex flex-col gap-5">
-        <button onClick={() => navigate('/')} className="text-neutral-400 self-start">
+        <button onClick={onHome} className="text-neutral-400 self-start">
           ← Home
         </button>
 
@@ -107,7 +108,7 @@ export default function Progress() {
         )}
 
         <button
-          onClick={() => navigate('/workout')}
+          onClick={onStartWorkout}
           className="w-full py-5 rounded-2xl bg-blue-600 text-white text-xl font-bold mt-2"
         >
           Start Workout

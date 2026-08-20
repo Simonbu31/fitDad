@@ -45,6 +45,24 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          notify_topic: string | null
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          notify_topic?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notify_topic?: string | null
+        }
+        Relationships: []
+      }
       workout_sets: {
         Row: {
           created_at: string
@@ -53,6 +71,7 @@ export type Database = {
           is_pr: boolean
           reps: number
           set_number: number
+          user_id: string
           weight_kg: number
           workout_id: string
         }
@@ -63,6 +82,7 @@ export type Database = {
           is_pr?: boolean
           reps: number
           set_number: number
+          user_id?: string
           weight_kg: number
           workout_id: string
         }
@@ -73,6 +93,7 @@ export type Database = {
           is_pr?: boolean
           reps?: number
           set_number?: number
+          user_id?: string
           weight_kg?: number
           workout_id?: string
         }
@@ -99,18 +120,21 @@ export type Database = {
           id: string
           notes: string | null
           started_at: string
+          user_id: string
         }
         Insert: {
           finished_at?: string | null
           id?: string
           notes?: string | null
           started_at?: string
+          user_id?: string
         }
         Update: {
           finished_at?: string | null
           id?: string
           notes?: string | null
           started_at?: string
+          user_id?: string
         }
         Relationships: []
       }

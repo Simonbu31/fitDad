@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { EXERCISES } from '../lib/exercises'
-import { fetchFinishedWorkouts, saveWorkout, type SetToSave } from '../lib/queries'
+import { fetchFinishedWorkouts, fetchNotifyTopic, saveWorkout, type SetToSave } from '../lib/queries'
 import { computeAllTimeBests, computeLastPerformance, type BestSet } from '../lib/stats'
 import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
 import { sendNotification } from '../lib/notify'
 import Stepper from '../components/Stepper'
 import RestTimer from '../components/RestTimer'
 import PrCelebration from '../components/PrCelebration'
+
+type WorkoutProps = {
+  userId: string
+  onExit: () => void
+  onFinish: () => void
+}
 
 const WARMUP_ITEMS = [
   'Wrist circles — a few turns each way',
@@ -22,10 +27,10 @@ function isPr(exerciseBest: BestSet | undefined, weight: number, reps: number): 
   return weight > exerciseBest.weight || (weight === exerciseBest.weight && reps > exerciseBest.reps)
 }
 
-export default function Workout() {
-  const navigate = useNavigate()
+export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
   const [loading, setLoading] = useState(true)
   const [resumeAvailable, setResumeAvailable] = useState(false)
+  const [notifyTopic, setNotifyTopic] = useState<string | null>(null)
 
   const [phase, setPhase] = useState<'warmup' | 'lifting' | 'saving'>('warmup')
   const [startedAt, setStartedAt] = useState(() => new Date().toISOString())
@@ -58,11 +63,17 @@ export default function Workout() {
       })
       .finally(() => setLoading(false))
 
+    fetchNotifyTopic(userId)
+      .then(setNotifyTopic)
+      .catch(() => {
+        // Notifications just won't fire this session — non-critical.
+      })
+
     const draft = loadDraft()
     if (draft && draft.sets.length > 0) {
       setResumeAvailable(true)
     }
-  }, [])
+  }, [userId])
 
   // Default the input fields to "last time's" numbers whenever the current
   // exercise changes, so logging a set is often just a single tap.
@@ -110,8 +121,9 @@ export default function Workout() {
       setAllTimeBests((prev) => ({ ...prev, [exercise.id]: { weight: weightInput, reps: repsInput } }))
       setCelebration(`${exercise.name}: ${weightInput} kg × ${repsInput}`)
       sendNotification(
+        notifyTopic,
         '🏆 New PR!',
-        `Dad just hit a PR on ${exercise.name}: ${weightInput} kg × ${repsInput}`,
+        `New PR on ${exercise.name}: ${weightInput} kg × ${repsInput}`,
         'trophy',
       )
     }
@@ -138,12 +150,13 @@ export default function Workout() {
       await saveWorkout(startedAt, sets)
       const prCount = sets.filter((s) => s.is_pr).length
       sendNotification(
+        notifyTopic,
         '✅ Workout logged',
-        `Dad finished a workout — ${sets.length} sets${prCount ? `, ${prCount} PR${prCount > 1 ? 's' : ''} 🏆` : ''}.`,
+        `Workout finished — ${sets.length} sets${prCount ? `, ${prCount} PR${prCount > 1 ? 's' : ''} 🏆` : ''}.`,
         prCount ? 'trophy' : 'muscle',
       )
       clearDraft()
-      navigate('/progress', { state: { justSaved: true } })
+      onFinish()
     } catch {
       setSaveError("Couldn't save — check your internet connection and try again.")
       setPhase('lifting')
@@ -181,7 +194,7 @@ export default function Workout() {
   return (
     <div className="min-h-dvh bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50">
       <div className="max-w-md mx-auto px-6 py-6 flex flex-col gap-6">
-        <button onClick={() => navigate('/')} className="text-neutral-400 self-start">
+        <button onClick={onExit} className="text-neutral-400 self-start">
           ← Exit
         </button>
 

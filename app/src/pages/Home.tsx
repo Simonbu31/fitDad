@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { fetchFinishedWorkouts, type WorkoutWithSets } from '../lib/queries'
 import { computeStreak } from '../lib/streak'
 import { exerciseById } from '../lib/exercises'
+
+type HomeProps = {
+  onStartWorkout: () => void
+  onViewProgress: () => void
+  onSettings: () => void
+}
 
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso)
@@ -14,8 +19,7 @@ function formatRelativeDate(iso: string): string {
   return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`
 }
 
-export default function Home() {
-  const navigate = useNavigate()
+export default function Home({ onStartWorkout, onViewProgress, onSettings }: HomeProps) {
   const [workouts, setWorkouts] = useState<WorkoutWithSets[] | null>(null)
   const [error, setError] = useState(false)
 
@@ -49,7 +53,7 @@ export default function Home() {
         )}
 
         <button
-          onClick={() => navigate('/workout')}
+          onClick={onStartWorkout}
           className="w-full py-6 rounded-3xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition text-white text-2xl font-bold shadow-lg shadow-blue-600/20"
         >
           Start Workout
@@ -82,12 +86,14 @@ export default function Home() {
           </div>
         )}
 
-        <button
-          onClick={() => navigate('/progress')}
-          className="text-blue-600 dark:text-blue-400 font-medium"
-        >
-          View Progress →
-        </button>
+        <div className="flex gap-6">
+          <button onClick={onViewProgress} className="text-blue-600 dark:text-blue-400 font-medium">
+            View Progress →
+          </button>
+          <button onClick={onSettings} className="text-neutral-400 font-medium">
+            Settings
+          </button>
+        </div>
       </div>
     </div>
   )
