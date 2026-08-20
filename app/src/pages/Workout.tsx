@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react'
-import { EXERCISES } from '../lib/exercises'
+import {
+  EXERCISES,
+  exerciseById,
+  SUPERSET_PAIRS,
+  SUPERSET_SHORT_REST,
+  SUPERSET_LONG_REST,
+} from '../lib/exercises'
 import { fetchFinishedWorkouts, fetchNotifyTopic, saveWorkout, type SetToSave } from '../lib/queries'
 import { computeAllTimeBests, computeLastPerformance, type BestSet } from '../lib/stats'
-import { loadDraft, saveDraft, clearDraft } from '../lib/draft'
+import { loadDraft, saveDraft, clearDraft, type WorkoutMode } from '../lib/draft'
 import { sendNotification } from '../lib/notify'
 import Stepper from '../components/Stepper'
 import RestTimer from '../components/RestTimer'
@@ -33,8 +39,10 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
   const [notifyTopic, setNotifyTopic] = useState<string | null>(null)
 
   const [phase, setPhase] = useState<'warmup' | 'lifting' | 'saving'>('warmup')
+  const [mode, setMode] = useState<WorkoutMode>('straight')
   const [startedAt, setStartedAt] = useState(() => new Date().toISOString())
   const [exerciseIndex, setExerciseIndex] = useState(0)
+  const [pairIndex, setPairIndex] = useState(0)
   const [sets, setSets] = useState<SetToSave[]>([])
   const [allTimeBests, setAllTimeBests] = useState<Record<number, BestSet>>({})
   const [lastPerformance, setLastPerformance] = useState<Record<number, BestSet>>({})
@@ -47,7 +55,34 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
   const [warmupChecked, setWarmupChecked] = useState<boolean[]>(WARMUP_ITEMS.map(() => false))
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  const exercise = EXERCISES[exerciseIndex]
+  // --- straight-sets derived state ---
+  const straightExercise = EXERCISES[exerciseIndex]
+  const straightSets = sets.filter((s) => s.exercise_id === straightExercise.id)
+  const straightTargetReached = straightSets.length >= straightExercise.setsTarget
+
+  // --- superset derived state ---
+  const pair = SUPERSET_PAIRS[pairIndex]
+  const exerciseA = pair ? exerciseById(pair[0])! : null
+  const exerciseB = pair ? exerciseById(pair[1])! : null
+  const setsForA = exerciseA ? sets.filter((s) => s.exercise_id === exerciseA.id).length : 0
+  const setsForB = exerciseB ? sets.filter((s) => s.exercise_id === exerciseB.id).length : 0
+  const aDone = exerciseA ? setsForA >= exerciseA.setsTarget : true
+  const bDone = exerciseB ? setsForB >= exerciseB.setsTarget : true
+  // A goes first each round; once A catches up to (or passes) B for this
+  // round, it's B's turn — this is what makes it alternate A,B,A,B,... instead
+  // of finishing all of A before starting B.
+  const nextInPair: 'A' | 'B' | null = !aDone && setsForA <= setsForB ? 'A' : !bDone ? 'B' : null
+  const pairRounds = exerciseA && exerciseB ? Math.max(exerciseA.setsTarget, exerciseB.setsTarget) : 0
+  const activeRoundNumber = nextInPair === 'A' ? setsForA + 1 : nextInPair === 'B' ? setsForB + 1 : pairRounds
+  const supersetPairComplete = mode === 'superset' && aDone && bDone
+
+  // The exercise the Log Set button currently acts on, in either mode.
+  const activeExercise =
+    mode === 'superset' ? (nextInPair === 'A' ? exerciseA : nextInPair === 'B' ? exerciseB : null) : straightExercise
+  const activeSets = activeExercise ? sets.filter((s) => s.exercise_id === activeExercise.id) : []
+
+  const targetReached = mode === 'superset' ? supersetPairComplete : straightTargetReached
+  const isLastStep = mode === 'superset' ? pairIndex === SUPERSET_PAIRS.length - 1 : exerciseIndex === EXERCISES.length - 1
 
   // Load history for PR comparisons + suggested starting weights, and check
   // for an unfinished workout draft.
@@ -75,19 +110,23 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
     }
   }, [userId])
 
-  // Default the input fields to "last time's" numbers whenever the current
+  // Default the input fields to "last time's" numbers whenever the active
   // exercise changes, so logging a set is often just a single tap.
   useEffect(() => {
-    const last = lastPerformance[exercise.id]
+    if (!activeExercise) return
+    const last = lastPerformance[activeExercise.id]
     setWeightInput(last?.weight ?? 20)
-    setRepsInput(last ? last.reps : exercise.repsMax)
-  }, [exerciseIndex, lastPerformance, exercise.id, exercise.repsMax])
+    setRepsInput(last ? last.reps : activeExercise.repsMax)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeExercise?.id, lastPerformance])
 
   function resumeDraft() {
     const draft = loadDraft()
     if (!draft) return
     setStartedAt(draft.startedAt)
+    setMode(draft.mode)
     setExerciseIndex(draft.exerciseIndex)
+    setPairIndex(draft.pairIndex)
     setSets(draft.sets)
     setPhase('lifting')
     setResumeAvailable(false)
@@ -98,16 +137,14 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
     setResumeAvailable(false)
   }
 
-  const currentExerciseSets = sets.filter((s) => s.exercise_id === exercise.id)
-  const targetReached = currentExerciseSets.length >= exercise.setsTarget
-
   function handleLogSet() {
-    const setNumber = currentExerciseSets.length + 1
-    const priorBest = allTimeBests[exercise.id]
+    if (!activeExercise) return
+    const setNumber = activeSets.length + 1
+    const priorBest = allTimeBests[activeExercise.id]
     const setIsPr = isPr(priorBest, weightInput, repsInput)
 
     const newSet: SetToSave = {
-      exercise_id: exercise.id,
+      exercise_id: activeExercise.id,
       set_number: setNumber,
       weight_kg: weightInput,
       reps: repsInput,
@@ -115,32 +152,46 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
     }
     const newSets = [...sets, newSet]
     setSets(newSets)
-    saveDraft({ startedAt, exerciseIndex, sets: newSets })
+    saveDraft({ startedAt, mode, exerciseIndex, pairIndex, sets: newSets })
 
     if (setIsPr) {
-      setAllTimeBests((prev) => ({ ...prev, [exercise.id]: { weight: weightInput, reps: repsInput } }))
-      setCelebration(`${exercise.name}: ${weightInput} kg × ${repsInput}`)
+      setAllTimeBests((prev) => ({ ...prev, [activeExercise.id]: { weight: weightInput, reps: repsInput } }))
+      setCelebration(`${activeExercise.name}: ${weightInput} kg × ${repsInput}`)
       sendNotification(
         notifyTopic,
         '🏆 New PR!',
-        `New PR on ${exercise.name}: ${weightInput} kg × ${repsInput}`,
+        `New PR on ${activeExercise.name}: ${weightInput} kg × ${repsInput}`,
         'trophy',
       )
     }
 
-    setRestSeconds(exercise.restSeconds)
+    if (mode === 'straight') {
+      setRestSeconds(activeExercise.restSeconds)
+    } else {
+      // Was the partner exercise still waiting on this same round? If so,
+      // it's a quick switch; otherwise the round just finished.
+      const partner = activeExercise.id === exerciseA?.id ? exerciseB : exerciseA
+      const partnerCount = activeExercise.id === exerciseA?.id ? setsForB : setsForA
+      const partnerStillPendingThisRound = partner ? partnerCount < setNumber && partnerCount < partner.setsTarget : false
+      setRestSeconds(partnerStillPendingThisRound ? SUPERSET_SHORT_REST : SUPERSET_LONG_REST)
+    }
     setRestKey((k) => k + 1)
   }
 
   function handleRemoveLastSet() {
     const newSets = sets.slice(0, -1)
     setSets(newSets)
-    saveDraft({ startedAt, exerciseIndex, sets: newSets })
+    saveDraft({ startedAt, mode, exerciseIndex, pairIndex, sets: newSets })
   }
 
   function goToExercise(index: number) {
     setExerciseIndex(index)
-    saveDraft({ startedAt, exerciseIndex: index, sets })
+    saveDraft({ startedAt, mode, exerciseIndex: index, pairIndex, sets })
+  }
+
+  function goToPair(index: number) {
+    setPairIndex(index)
+    saveDraft({ startedAt, mode, exerciseIndex, pairIndex: index, sets })
   }
 
   async function handleFinish() {
@@ -230,6 +281,38 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
             <p className="text-sm text-neutral-400">
               Also: before each exercise, do one light warm-up set (empty bar / lightest setting) for ~10 reps before your working weight.
             </p>
+
+            <div className="mt-2">
+              <p className="font-semibold mb-2">Feeling like a savage, or short on time?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setMode('straight')}
+                  className={`flex-1 py-3 rounded-xl border font-semibold text-sm ${
+                    mode === 'straight'
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'border-neutral-200 dark:border-neutral-800 text-neutral-500'
+                  }`}
+                >
+                  Straight Sets
+                </button>
+                <button
+                  onClick={() => setMode('superset')}
+                  className={`flex-1 py-3 rounded-xl border font-semibold text-sm ${
+                    mode === 'superset'
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'border-neutral-200 dark:border-neutral-800 text-neutral-500'
+                  }`}
+                >
+                  Supersets 🔥
+                </button>
+              </div>
+              <p className="text-sm text-neutral-400 mt-2">
+                {mode === 'straight'
+                  ? 'One exercise at a time, full rest between sets — the classic way.'
+                  : 'Pairs of exercises back-to-back with a short switch, longer rest between rounds. Faster and more intense.'}
+              </p>
+            </div>
+
             <button
               onClick={() => setPhase('lifting')}
               className="w-full py-5 rounded-2xl bg-blue-600 text-white text-xl font-bold mt-2"
@@ -239,7 +322,7 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
           </div>
         )}
 
-        {phase !== 'warmup' && (
+        {phase !== 'warmup' && mode === 'straight' && (
           <>
             <div className="flex items-center justify-center gap-2">
               {EXERCISES.map((e, i) => (
@@ -262,20 +345,24 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
               <p className="text-sm text-neutral-400">
                 Exercise {exerciseIndex + 1} of {EXERCISES.length}
               </p>
-              <h1 className="text-2xl font-bold mt-1">{exercise.name}</h1>
+              <h1 className="text-2xl font-bold mt-1">{straightExercise.name}</h1>
               <p className="text-neutral-500 dark:text-neutral-400 mt-1">
-                Target: {exercise.setsTarget} sets × {exercise.repsMin === exercise.repsMax ? exercise.repsMax : `${exercise.repsMin}–${exercise.repsMax}`} reps
+                Target: {straightExercise.setsTarget} sets ×{' '}
+                {straightExercise.repsMin === straightExercise.repsMax
+                  ? straightExercise.repsMax
+                  : `${straightExercise.repsMin}–${straightExercise.repsMax}`}{' '}
+                reps
               </p>
-              {lastPerformance[exercise.id] && (
+              {lastPerformance[straightExercise.id] && (
                 <p className="text-sm text-blue-500 mt-1">
-                  Last time: {lastPerformance[exercise.id].weight} kg × {lastPerformance[exercise.id].reps}
+                  Last time: {lastPerformance[straightExercise.id].weight} kg × {lastPerformance[straightExercise.id].reps}
                 </p>
               )}
             </div>
 
-            {currentExerciseSets.length > 0 && (
+            {straightSets.length > 0 && (
               <div className="flex flex-wrap gap-2 justify-center">
-                {currentExerciseSets.map((s) => (
+                {straightSets.map((s) => (
                   <span
                     key={s.set_number}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium ${
@@ -290,7 +377,87 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
                 ))}
               </div>
             )}
+          </>
+        )}
 
+        {phase !== 'warmup' && mode === 'superset' && exerciseA && exerciseB && (
+          <>
+            <div className="flex items-center justify-center gap-2">
+              {SUPERSET_PAIRS.map((p, i) => (
+                <button
+                  key={i}
+                  onClick={() => i <= pairIndex && goToPair(i)}
+                  className={`w-2.5 h-2.5 rounded-full transition ${
+                    i === pairIndex
+                      ? 'bg-blue-600 scale-125'
+                      : p.some((id) => sets.some((s) => s.exercise_id === id))
+                        ? 'bg-blue-300'
+                        : 'bg-neutral-300 dark:bg-neutral-700'
+                  }`}
+                  aria-label={`Superset ${i + 1}`}
+                />
+              ))}
+            </div>
+
+            <div className="text-center">
+              <p className="text-sm text-neutral-400">
+                Superset {pairIndex + 1} of {SUPERSET_PAIRS.length}
+                {!supersetPairComplete && ` · Round ${activeRoundNumber} of ${pairRounds}`}
+              </p>
+              <h1 className="text-xl font-bold mt-1">
+                {exerciseA.name} + {exerciseB.name}
+              </h1>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {[exerciseA, exerciseB].map((ex) => {
+                const exSets = sets.filter((s) => s.exercise_id === ex.id)
+                const done = exSets.length >= ex.setsTarget
+                const isActive = activeExercise?.id === ex.id
+                return (
+                  <div
+                    key={ex.id}
+                    className={`rounded-2xl border p-3 ${
+                      isActive
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/30'
+                        : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold">{ex.name}</p>
+                      <p className="text-xs text-neutral-400">
+                        {exSets.length}/{ex.setsTarget} sets{done ? ' ✓' : ''}
+                      </p>
+                    </div>
+                    {exSets.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {exSets.map((s) => (
+                          <span
+                            key={s.set_number}
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              s.is_pr
+                                ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                                : 'bg-neutral-100 dark:bg-neutral-800'
+                            }`}
+                          >
+                            {s.is_pr && '🏆 '}
+                            {s.weight_kg}kg×{s.reps}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {phase !== 'warmup' && activeExercise && (
+          <>
+            {mode === 'superset' && (
+              <p className="text-center text-sm text-neutral-400 -mb-2">Now: {activeExercise.name}</p>
+            )}
             <div className="flex items-center justify-center gap-8 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 py-6">
               <Stepper label="Weight" value={weightInput} step={2.5} unit="kg" onChange={setWeightInput} />
               <Stepper label="Reps" value={repsInput} step={1} unit="reps" onChange={setRepsInput} />
@@ -303,36 +470,36 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
               Log Set
             </button>
 
-            {currentExerciseSets.length > 0 && (
+            {sets.length > 0 && (
               <button onClick={handleRemoveLastSet} className="text-sm text-neutral-400 -mt-3">
                 Undo last set
               </button>
             )}
-
-            {targetReached && (
-              <div className="flex flex-col gap-3 mt-2">
-                {exerciseIndex < EXERCISES.length - 1 ? (
-                  <button
-                    onClick={() => goToExercise(exerciseIndex + 1)}
-                    className="w-full py-4 rounded-2xl bg-neutral-900 dark:bg-white dark:text-neutral-900 text-white font-semibold"
-                  >
-                    Next Exercise →
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleFinish}
-                    disabled={phase === 'saving'}
-                    className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-semibold disabled:opacity-60"
-                  >
-                    {phase === 'saving' ? 'Saving…' : 'Finish Workout 🎉'}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {saveError && <p className="text-sm text-red-500 text-center">{saveError}</p>}
           </>
         )}
+
+        {phase !== 'warmup' && targetReached && (
+          <div className="flex flex-col gap-3 mt-2">
+            {!isLastStep ? (
+              <button
+                onClick={() => (mode === 'straight' ? goToExercise(exerciseIndex + 1) : goToPair(pairIndex + 1))}
+                className="w-full py-4 rounded-2xl bg-neutral-900 dark:bg-white dark:text-neutral-900 text-white font-semibold"
+              >
+                {mode === 'straight' ? 'Next Exercise →' : 'Next Superset →'}
+              </button>
+            ) : (
+              <button
+                onClick={handleFinish}
+                disabled={phase === 'saving'}
+                className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-semibold disabled:opacity-60"
+              >
+                {phase === 'saving' ? 'Saving…' : 'Finish Workout 🎉'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {phase !== 'warmup' && saveError && <p className="text-sm text-red-500 text-center">{saveError}</p>}
       </div>
 
       {restSeconds !== null && (

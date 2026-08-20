@@ -23,3 +23,16 @@ export const EXERCISES: Exercise[] = [
 export function exerciseById(id: number): Exercise | undefined {
   return EXERCISES.find((e) => e.id === id)
 }
+
+// From the plan's "Supersets (optional)" section: pair upper + lower body so
+// Leg Press and RDL/Trap Bar Deadlift never land back-to-back (pre-fatigued
+// legs on a technical hip-hinge movement is a real injury risk).
+export const SUPERSET_PAIRS: [number, number][] = [
+  [1, 3], // Leg Press + Bench Press
+  [2, 4], // Trap Bar Deadlift / RDL + Lat Pulldown
+  [5, 6], // Seated Row + Chest Fly
+]
+
+// Set A, ~30-45s to switch, set B, then 90s-2min before the next round.
+export const SUPERSET_SHORT_REST = 40
+export const SUPERSET_LONG_REST = 105
