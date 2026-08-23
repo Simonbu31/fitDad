@@ -18,7 +18,12 @@ export const EXERCISES: Exercise[] = [
   { id: 4, slug: 'lat-pulldown', name: 'Lat Pulldown', setsTarget: 3, repsMin: 8, repsMax: 8, restSeconds: 90 },
   { id: 5, slug: 'seated-row', name: 'Seated Row (Cable) / T-Bar', setsTarget: 3, repsMin: 8, repsMax: 10, restSeconds: 90 },
   { id: 6, slug: 'chest-fly', name: 'Chest Fly / Butterfly', setsTarget: 3, repsMin: 10, repsMax: 10, restSeconds: 90 },
+  { id: 7, slug: 'bicep-curls', name: 'Bicep Curls', setsTarget: 3, repsMin: 10, repsMax: 10, restSeconds: 90 },
 ]
+
+// Not part of the plan's superset pairing — always done solo at the very
+// end, in both Straight Sets and Superset mode.
+export const FINISHER_EXERCISE_ID = 7
 
 export function exerciseById(id: number): Exercise | undefined {
   return EXERCISES.find((e) => e.id === id)

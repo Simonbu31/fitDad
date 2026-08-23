@@ -7,8 +7,9 @@ A super simple workout tracker built for one person: my dad, starting his
 
 ## What it does
 
-- **Start Workout** → walks through the 6 exercises from the plan, one at a
-  time, with a quick warm-up checklist first.
+- **Start Workout** → walks through the plan's exercises one at a time
+  (6 from the plan + a Bicep Curls finisher), with a quick warm-up
+  checklist first. Choose Straight Sets or Superset mode.
 - Log each set with big +/- steppers (weight in kg, reps) — pre-filled with
   what you lifted last time.
 - Built-in rest timer (3 min for the big lifts, 90 sec for the rest) with a
