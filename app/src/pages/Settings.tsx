@@ -14,6 +14,10 @@ export default function Settings({ userId, userEmail, onBack }: SettingsProps) {
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
 
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
   useEffect(() => {
     fetchNotifyTopic(userId)
       .then(setTopic)
@@ -30,6 +34,20 @@ export default function Settings({ userId, userEmail, onBack }: SettingsProps) {
   async function handleDisable() {
     setTopic(null)
     await saveNotifyTopic(userId, null)
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    setDeleteError(null)
+    const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' })
+    if (error) {
+      setDeleting(false)
+      setDeleteError("Couldn't delete your account — check your internet connection and try again.")
+      return
+    }
+    // Account + all workout data are gone server-side; drop the local
+    // session so the app returns to the sign-in screen.
+    await supabase.auth.signOut()
   }
 
   return (
@@ -93,6 +111,43 @@ export default function Settings({ userId, userEmail, onBack }: SettingsProps) {
         >
           Sign out
         </button>
+
+        <div className="rounded-2xl border border-red-200 dark:border-red-900 p-4 mt-4">
+          <p className="font-semibold text-red-600 dark:text-red-400 mb-1">Delete account</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-3">
+            Permanently deletes your account and every workout you've logged. This can't be undone.
+          </p>
+
+          {!confirmingDelete ? (
+            <button onClick={() => setConfirmingDelete(true)} className="text-sm text-red-500 font-medium">
+              Delete my account
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium">Are you sure? This deletes everything.</p>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="w-full py-3 rounded-xl bg-red-600 text-white font-semibold disabled:opacity-60"
+              >
+                {deleting ? 'Deleting…' : 'Yes, delete everything'}
+              </button>
+              <button onClick={() => setConfirmingDelete(false)} className="text-sm text-neutral-400">
+                Cancel
+              </button>
+              {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
+            </div>
+          )}
+        </div>
+
+        <a
+          href="https://simonbu31.github.io/fitDad/privacy.html"
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-neutral-400 text-center underline mt-2"
+        >
+          Privacy Policy
+        </a>
       </div>
     </div>
   )

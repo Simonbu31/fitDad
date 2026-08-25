@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import { authRedirectUrl } from '../lib/platform'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -7,18 +8,29 @@ export default function Login() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Secondary path, off by default: Apple/Google app-store reviewers can't
+  // click an emailed link (no inbox access), so they need a fixed
+  // email+password account to test the app. Regular users never see a
+  // reason to use this — the magic link above stays the primary flow.
+  const [usePassword, setUsePassword] = useState(false)
+  const [password, setPassword] = useState('')
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setSending(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.href.split('#')[0] },
-    })
+
+    const { error } = usePassword
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signInWithOtp({
+          email,
+          options: { emailRedirectTo: authRedirectUrl() },
+        })
+
     setSending(false)
     if (error) {
       setError(error.message)
-    } else {
+    } else if (!usePassword) {
       setSent(true)
     }
   }
@@ -57,17 +69,50 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full py-4 px-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
+
+            {usePassword && (
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full py-4 px-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            )}
+
             <button
               type="submit"
               disabled={sending}
               className="w-full py-4 rounded-2xl bg-blue-600 text-white text-lg font-bold disabled:opacity-60"
             >
-              {sending ? 'Sending…' : 'Send me a sign-in link'}
+              {sending ? 'Signing in…' : usePassword ? 'Sign in' : 'Send me a sign-in link'}
             </button>
             {error && <p className="text-sm text-red-500">{error}</p>}
-            <p className="text-xs text-neutral-400 mt-2">
-              No password needed — we'll email you a link that signs you in.
-            </p>
+
+            {usePassword ? (
+              <button
+                type="button"
+                onClick={() => setUsePassword(false)}
+                className="text-xs text-neutral-400 mt-1"
+              >
+                Use a sign-in link instead
+              </button>
+            ) : (
+              <>
+                <p className="text-xs text-neutral-400 mt-2">
+                  No password needed — we'll email you a link that signs you in.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setUsePassword(true)}
+                  className="text-xs text-neutral-400 underline"
+                >
+                  Have a password? Use it instead
+                </button>
+              </>
+            )}
           </form>
         )}
       </div>
