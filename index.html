@@ -11,10 +11,31 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Fit Dad" />
     <title>Fit Dad</title>
-    <script type="module" crossorigin src="/fitDad/assets/index-CAFwTSOD.js"></script>
-    <link rel="stylesheet" crossorigin href="/fitDad/assets/index-DI42bOpw.css">
+    <script type="module" crossorigin src="/fitDad/assets/index-gV9BSqgw.js"></script>
+    <link rel="stylesheet" crossorigin href="/fitDad/assets/index-DVG1AKNp.css">
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Registered before any module code runs, so a crash during import
+      // evaluation (native bridge glitches, etc.) shows something instead
+      // of a silent blank screen — especially important on native
+      // iOS/Android where there's no console to check.
+      function showCrash(message) {
+        var root = document.getElementById('root')
+        if (root) {
+          root.innerHTML =
+            '<pre style="color:#f87171;background:#0a0a0a;padding:16px;white-space:pre-wrap;font-size:12px;font-family:monospace;">' +
+            String(message).replace(/</g, '&lt;') +
+            '</pre>'
+        }
+      }
+      window.addEventListener('error', function (e) {
+        showCrash((e.error && e.error.stack) || e.message)
+      })
+      window.addEventListener('unhandledrejection', function (e) {
+        showCrash('Unhandled promise rejection: ' + ((e.reason && e.reason.stack) || e.reason))
+      })
+    </script>
   </body>
 </html>
