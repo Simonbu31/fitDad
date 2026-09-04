@@ -522,7 +522,7 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
               <p className="text-center text-sm text-neutral-400 -mb-2">Now: {activeExercise.name}</p>
             )}
             <div className="flex items-center justify-center gap-8 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 py-6">
-              <Stepper label="Weight" value={weightInput} step={2.5} unit="kg" onChange={setWeightInput} />
+              <Stepper label="Weight" value={weightInput} step={0.5} unit="kg" onChange={setWeightInput} />
               <Stepper label="Reps" value={repsInput} step={1} unit="reps" onChange={setRepsInput} />
             </div>
 
