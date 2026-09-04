@@ -62,15 +62,11 @@ tracking, no data broker sharing, no third-party advertising).
 ## App Review — Review Notes
 
 ```
-Sign-in is passwordless (magic link sent to the user's email) — since
-reviewers won't have access to an inbox, please use this fixed test
-account instead:
+Sign-in uses a plain email + password account. Please use this test
+account:
 
 Email: burkhardt.simon+applereview@gmx.de
 Password: SaAHBdEb408Xvz9RWK9s
-
-On the sign-in screen, tap "Have a password? Use it instead" and sign in
-with the credentials above.
 
 This account starts with no data. Feel free to tap "Start Workout" to try
 the full flow: warm-up checklist → log a few sets → rest timer → finish
