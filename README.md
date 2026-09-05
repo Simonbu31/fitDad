@@ -1,7 +1,7 @@
 # Fit Dad 💪
 
-A super simple workout tracker built for one person: my dad, starting his
-3-month strength training plan.
+A super simple workout tracker built for one person: your dad, start his
+3-month strength training plan right now.
 
 **Live app:** https://simonbu31.github.io/fitDad/
 
