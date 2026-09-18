@@ -37,7 +37,7 @@ export default function Home({ onStartWorkout, onViewProgress, onSettings }: Hom
     <div className="min-h-dvh bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50 flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8 max-w-md mx-auto w-full">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight">Fit Dad 💪</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Fit Dad</h1>
           <p className="text-neutral-500 dark:text-neutral-400 mt-1">
             {totalWorkouts > 0
               ? `${totalWorkouts} workout${totalWorkouts === 1 ? '' : 's'} logged`

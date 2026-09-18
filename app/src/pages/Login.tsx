@@ -27,7 +27,7 @@ export default function Login() {
   return (
     <div className="min-h-dvh bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50 flex items-center justify-center px-6">
       <div className="max-w-sm w-full text-center">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Fit Dad 💪</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Fit Dad</h1>
         <p className="text-neutral-500 dark:text-neutral-400 mb-8">
           {mode === 'signin' ? 'Sign in to track your workouts' : 'Create your account'}
         </p>
