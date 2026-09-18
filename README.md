@@ -54,3 +54,27 @@ GitHub Pages serves from.
 
 `Papas Drei Monate Transformation.pdf` is the original training plan this
 app is built around: 2 sessions/week, 6 exercises, same workout both days.
+
+## App Store submission history
+
+- **2026-09-04** — Submitted build 1.0 (2) for App Review.
+- **2026-09-09** — Rejected under **Guideline 5.2.5 (Legal — Intellectual
+  Property)**: the app icon was a direct render of Apple's own Color Emoji
+  artwork (💪), which is copyrighted and confusingly similar to an Apple
+  product. Apple's exact wording: "Imagery that is similar to Apple Emoji in
+  one of the app icons."
+- **2026-09-18** — Fix applied and resubmitted as build 1.0 (3):
+  - Replaced the app icon (`AppIcon.appiconset`, `icon-192.png`,
+    `icon-512.png`, `apple-touch-icon.png`) with original artwork — no
+    Apple emoji imagery, full-bleed 1024×1024 with no baked-in corner
+    rounding or alpha channel (iOS applies its own mask).
+  - Dropped the same 💪 emoji from the in-app "Fit Dad" wordmark on the
+    Home and Login screens, since it was used logo-style there too.
+    Left ordinary mid-sentence emoji use (e.g. "nice work! 💪") alone —
+    that's normal copy, not a logo/icon element.
+  - Bumped `CURRENT_PROJECT_VERSION` to 3 in the Xcode project (Apple
+    requires a higher build number than the last reviewed one).
+  - Re-attached the new build in App Store Connect, answered the export
+    compliance question (standard HTTPS encryption, no French-specific
+    declaration needed), and resubmitted for review with a note pointing
+    the reviewer at the 5.2.5 fix.
