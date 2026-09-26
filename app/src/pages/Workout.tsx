@@ -5,7 +5,7 @@ import {
   SUPERSET_PAIRS,
   SUPERSET_SHORT_REST,
   SUPERSET_LONG_REST,
-  FINISHER_EXERCISE_ID,
+  FINISHER_EXERCISE_IDS,
 } from '../lib/exercises'
 import { fetchFinishedWorkouts, fetchNotifyTopic, saveWorkout, type SetToSave } from '../lib/queries'
 import { computeAllTimeBests, computeLastPerformance, type BestSet } from '../lib/stats'
@@ -62,9 +62,12 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
   const straightTargetReached = straightSets.length >= straightExercise.setsTarget
 
   // --- superset derived state ---
-  // pairIndex counts through the 3 real pairs, then one more step for the
-  // finisher (bicep curls) done solo at the end, not part of any pair.
-  const inFinisher = mode === 'superset' && pairIndex === SUPERSET_PAIRS.length
+  // pairIndex counts through the 3 real pairs, then one more step per
+  // finisher exercise (bicep curls, leg raises) done solo at the end, in
+  // order, not part of any pair.
+  const totalSupersetSteps = SUPERSET_PAIRS.length + FINISHER_EXERCISE_IDS.length
+  const inFinisher = mode === 'superset' && pairIndex >= SUPERSET_PAIRS.length
+  const finisherIndex = pairIndex - SUPERSET_PAIRS.length
   const pair = SUPERSET_PAIRS[pairIndex]
   const exerciseA = pair ? exerciseById(pair[0])! : null
   const exerciseB = pair ? exerciseById(pair[1])! : null
@@ -80,9 +83,11 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
   const activeRoundNumber = nextInPair === 'A' ? setsForA + 1 : nextInPair === 'B' ? setsForB + 1 : pairRounds
   const supersetPairComplete = mode === 'superset' && !inFinisher && aDone && bDone
 
-  const finisherExercise = exerciseById(FINISHER_EXERCISE_ID)!
-  const finisherSets = sets.filter((s) => s.exercise_id === finisherExercise.id)
-  const finisherDone = finisherSets.length >= finisherExercise.setsTarget
+  const finisherExercise = inFinisher ? exerciseById(FINISHER_EXERCISE_IDS[finisherIndex])! : null
+  const finisherSets = finisherExercise ? sets.filter((s) => s.exercise_id === finisherExercise.id) : []
+  const finisherDone = finisherExercise ? finisherSets.length >= finisherExercise.setsTarget : false
+  const nextFinisherId =
+    pairIndex + 1 >= SUPERSET_PAIRS.length ? FINISHER_EXERCISE_IDS[pairIndex + 1 - SUPERSET_PAIRS.length] : undefined
 
   // The exercise the Log Set button currently acts on, in either mode.
   const activeExercise =
@@ -100,8 +105,7 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
   const activeSets = activeExercise ? sets.filter((s) => s.exercise_id === activeExercise.id) : []
 
   const targetReached = mode === 'superset' ? (inFinisher ? finisherDone : supersetPairComplete) : straightTargetReached
-  const isLastStep = mode === 'straight' ? exerciseIndex === EXERCISES.length - 1 : inFinisher
-  const nextStepIsFinisher = mode === 'superset' && pairIndex === SUPERSET_PAIRS.length - 1
+  const isLastStep = mode === 'straight' ? exerciseIndex === EXERCISES.length - 1 : pairIndex === totalSupersetSteps - 1
 
   // Load history for PR comparisons + suggested starting weights, and check
   // for an unfinished workout draft.
@@ -415,13 +419,23 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
                 aria-label={`Superset ${i + 1}`}
               />
             ))}
-            <button
-              onClick={() => pairIndex >= SUPERSET_PAIRS.length && goToPair(SUPERSET_PAIRS.length)}
-              className={`w-2.5 h-2.5 rounded-full transition ${
-                inFinisher ? 'bg-blue-600 scale-125' : finisherSets.length > 0 ? 'bg-blue-300' : 'bg-neutral-300 dark:bg-neutral-700'
-              }`}
-              aria-label="Finisher"
-            />
+            {FINISHER_EXERCISE_IDS.map((id, i) => {
+              const stepIndex = SUPERSET_PAIRS.length + i
+              return (
+                <button
+                  key={id}
+                  onClick={() => stepIndex <= pairIndex && goToPair(stepIndex)}
+                  className={`w-2.5 h-2.5 rounded-full transition ${
+                    stepIndex === pairIndex
+                      ? 'bg-blue-600 scale-125'
+                      : sets.some((s) => s.exercise_id === id)
+                        ? 'bg-blue-300'
+                        : 'bg-neutral-300 dark:bg-neutral-700'
+                  }`}
+                  aria-label={exerciseById(id)!.name}
+                />
+              )
+            })}
           </div>
         )}
 
@@ -481,13 +495,19 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
           </>
         )}
 
-        {phase !== 'warmup' && mode === 'superset' && inFinisher && (
+        {phase !== 'warmup' && mode === 'superset' && inFinisher && finisherExercise && (
           <>
             <div className="text-center">
-              <p className="text-sm text-neutral-400">Finisher 💪</p>
+              <p className="text-sm text-neutral-400">
+                Finisher{FINISHER_EXERCISE_IDS.length > 1 ? ` ${finisherIndex + 1} of ${FINISHER_EXERCISE_IDS.length}` : ''} 💪
+              </p>
               <h1 className="text-2xl font-bold mt-1">{finisherExercise.name}</h1>
               <p className="text-neutral-500 dark:text-neutral-400 mt-1">
-                Target: {finisherExercise.setsTarget} sets × {finisherExercise.repsMax} reps
+                Target: {finisherExercise.setsTarget} sets ×{' '}
+                {finisherExercise.repsMin === finisherExercise.repsMax
+                  ? finisherExercise.repsMax
+                  : `${finisherExercise.repsMin}–${finisherExercise.repsMax}`}{' '}
+                reps
               </p>
               {lastPerformance[finisherExercise.id] && (
                 <p className="text-sm text-blue-500 mt-1">
@@ -550,8 +570,8 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
               >
                 {mode === 'straight'
                   ? 'Next Exercise →'
-                  : nextStepIsFinisher
-                    ? 'Finisher: Bicep Curls →'
+                  : nextFinisherId !== undefined
+                    ? `Finisher: ${exerciseById(nextFinisherId)!.name} →`
                     : 'Next Superset →'}
               </button>
             ) : (
