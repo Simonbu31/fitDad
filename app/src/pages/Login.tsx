@@ -1,17 +1,37 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import { PUBLIC_APP_URL } from '../lib/config'
+
+type Mode = 'signin' | 'signup' | 'forgot'
 
 export default function Login() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [resetSent, setResetSent] = useState(false)
+
+  function switchMode(next: Mode) {
+    setMode(next)
+    setError(null)
+    setResetSent(false)
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setSending(true)
     setError(null)
+
+    if (mode === 'forgot') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: PUBLIC_APP_URL,
+      })
+      setSending(false)
+      if (error) setError(error.message)
+      else setResetSent(true)
+      return
+    }
 
     const { error } =
       mode === 'signin'
@@ -29,52 +49,88 @@ export default function Login() {
       <div className="max-w-sm w-full text-center">
         <h1 className="text-3xl font-bold tracking-tight mb-2">Fit Dad</h1>
         <p className="text-neutral-500 dark:text-neutral-400 mb-8">
-          {mode === 'signin' ? 'Sign in to track your workouts' : 'Create your account'}
+          {mode === 'signin' && 'Sign in to track your workouts'}
+          {mode === 'signup' && 'Create your account'}
+          {mode === 'forgot' && 'Reset your password'}
         </p>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <input
-            type="email"
-            required
-            autoFocus
-            inputMode="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full py-4 px-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-          />
-          <input
-            type="password"
-            required
-            minLength={6}
-            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full py-4 px-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-          />
+        {mode === 'forgot' && resetSent ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-neutral-500 dark:text-neutral-400">
+              If an account exists for <span className="font-medium">{email}</span>, a password reset
+              link is on its way. Open it on this device to set a new password.
+            </p>
+            <button
+              type="button"
+              onClick={() => switchMode('signin')}
+              className="text-sm text-neutral-400"
+            >
+              Back to sign in
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <input
+              type="email"
+              required
+              autoFocus
+              inputMode="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full py-4 px-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+            />
 
-          <button
-            type="submit"
-            disabled={sending}
-            className="w-full py-4 rounded-2xl bg-blue-600 text-white text-lg font-bold disabled:opacity-60"
-          >
-            {sending ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
-          </button>
-          {error && <p className="text-sm text-red-500">{error}</p>}
+            {mode !== 'forgot' && (
+              <input
+                type="password"
+                required
+                minLength={6}
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full py-4 px-4 rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setMode(mode === 'signin' ? 'signup' : 'signin')
-              setError(null)
-            }}
-            className="text-sm text-neutral-400 mt-2"
-          >
-            {mode === 'signin' ? "Don't have an account? Create one" : 'Already have an account? Sign in'}
-          </button>
-        </form>
+            {mode === 'signin' && (
+              <button
+                type="button"
+                onClick={() => switchMode('forgot')}
+                className="text-sm text-neutral-400 self-end -mt-1"
+              >
+                Forgot password?
+              </button>
+            )}
+
+            <button
+              type="submit"
+              disabled={sending}
+              className="w-full py-4 rounded-2xl bg-blue-600 text-white text-lg font-bold disabled:opacity-60"
+            >
+              {sending
+                ? 'Please wait…'
+                : mode === 'signin'
+                  ? 'Sign in'
+                  : mode === 'signup'
+                    ? 'Create account'
+                    : 'Send reset link'}
+            </button>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <button
+              type="button"
+              onClick={() => switchMode(mode === 'forgot' ? 'signin' : mode === 'signin' ? 'signup' : 'signin')}
+              className="text-sm text-neutral-400 mt-2"
+            >
+              {mode === 'signin' && "Don't have an account? Create one"}
+              {mode === 'signup' && 'Already have an account? Sign in'}
+              {mode === 'forgot' && 'Back to sign in'}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   )
