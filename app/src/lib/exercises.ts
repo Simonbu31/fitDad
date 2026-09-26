@@ -11,6 +11,11 @@ export type Exercise = {
 // Mirrors the `exercises` table (static plan, doesn't change often).
 // Kept as a local constant so the workout screen doesn't depend on a
 // network round-trip just to know what's on today's plan.
+//
+// IMPORTANT: workout_sets.exercise_id has a foreign key into that table.
+// Adding a row here without also inserting the matching row in Supabase
+// makes every save fail for that exercise (happened with Leg Raises,
+// id 8 — silent 409 on Finish Workout until the DB row was added).
 export const EXERCISES: Exercise[] = [
   { id: 1, slug: 'leg-press', name: 'Leg Press', setsTarget: 3, repsMin: 8, repsMax: 10, restSeconds: 180 },
   { id: 2, slug: 'rdl', name: 'Trap Bar Deadlift / RDL', setsTarget: 2, repsMin: 6, repsMax: 8, restSeconds: 180 },
