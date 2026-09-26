@@ -55,6 +55,19 @@ GitHub Pages serves from.
 `Papas Drei Monate Transformation.pdf` is the original training plan this
 app is built around: 2 sessions/week, 6 exercises, same workout both days.
 
+## Backlog / known issues
+
+Not urgent at current user counts, but worth revisiting as the app picks up
+more users beyond just family:
+
+- **Sign-up is fully open** — anyone with the app link can create an
+  account, no invite/approval step. Fine for friends-and-family growth;
+  consider gating this if the app is ever shared more broadly.
+- **No email verification on sign-up** — deliberately disabled to avoid
+  Supabase's mailer rate limits (see the auth history below). Means if
+  someone typos their email at sign-up, "Forgot password" can't reach them
+  since Supabase never confirmed they own that address.
+
 ## App Store submission history
 
 - **2026-09-04** — Submitted build 1.0 (2) for App Review.
