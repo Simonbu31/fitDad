@@ -101,3 +101,7 @@ more users beyond just family:
   submissions," revealing that 1.1 had already been approved and released at
   some point outside what's logged here. Bumped `MARKETING_VERSION` to 1.2
   (keeping build 5, which was never part of the closed 1.1 train) to fix it.
+  Re-archived, uploaded build 1.2 (5), answered export compliance in App
+  Store Connect (standard HTTPS encryption, not France-specific — same
+  answer as the 1.0 (3) submission), attached the build to a new 1.2
+  version, added release notes, and submitted for App Review.
