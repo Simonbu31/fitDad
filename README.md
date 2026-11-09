@@ -91,10 +91,13 @@ more users beyond just family:
     compliance question (standard HTTPS encryption, no French-specific
     declaration needed), and resubmitted for review with a note pointing
     the reviewer at the 5.2.5 fix.
-- **2026-11-09** — Prepped build 1.1 (5) for submission: rest timer now
-  survives a locked screen (anchors the countdown to a wall-clock end time,
-  adds a Screen Wake Lock, and schedules a delayed ntfy push as a fallback
-  for when the screen is manually locked) and always rings exactly once.
-  Bumped `CURRENT_PROJECT_VERSION` to 5 (skipping past the untracked 1.1 (4)
-  bump from the Leg Raises commit, since it wasn't confirmed whether that
-  build had already been uploaded to App Store Connect).
+- **2026-11-09** — Prepped a build for submission: rest timer now survives a
+  locked screen (anchors the countdown to a wall-clock end time, adds a
+  Screen Wake Lock, and schedules a delayed ntfy push as a fallback for when
+  the screen is manually locked) and always rings exactly once. Initially
+  bumped only `CURRENT_PROJECT_VERSION` to 5, keeping `MARKETING_VERSION` at
+  1.1 — Xcode's distribution step then rejected the archive with "Invalid
+  Pre-Release Train. The train version '1.1' is closed for new build
+  submissions," revealing that 1.1 had already been approved and released at
+  some point outside what's logged here. Bumped `MARKETING_VERSION` to 1.2
+  (keeping build 5, which was never part of the closed 1.1 train) to fix it.
