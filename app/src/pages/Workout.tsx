@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   EXERCISES,
   exerciseById,
@@ -10,7 +10,7 @@ import {
 import { fetchFinishedWorkouts, fetchNotifyTopic, saveWorkout, type SetToSave } from '../lib/queries'
 import { computeAllTimeBests, computeLastPerformance, type BestSet } from '../lib/stats'
 import { loadDraft, saveDraft, clearDraft, type WorkoutMode } from '../lib/draft'
-import { sendNotification } from '../lib/notify'
+import { sendNotification, cancelScheduledNotification } from '../lib/notify'
 import Stepper from '../components/Stepper'
 import RestTimer from '../components/RestTimer'
 import PrCelebration from '../components/PrCelebration'
@@ -20,6 +20,13 @@ type WorkoutProps = {
   onExit: () => void
   onFinish: () => void
 }
+
+// Head start given to the scheduled rest-over push beyond the actual rest
+// duration, so that when the rest finishes with the app still open (and the
+// in-page beep already handled it), there's a comfortable window to cancel
+// the push before ntfy would otherwise deliver it too — avoiding a double
+// ding.
+const REST_PING_LEAD_SECONDS = 6
 
 const WARMUP_ITEMS = [
   'Wrist circles — a few turns each way',
@@ -52,6 +59,7 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
   const [repsInput, setRepsInput] = useState(10)
   const [restSeconds, setRestSeconds] = useState<number | null>(null)
   const [restKey, setRestKey] = useState(0)
+  const pendingRestPingRef = useRef<{ topic: string; id: string } | null>(null)
   const [celebration, setCelebration] = useState<string | null>(null)
   const [warmupChecked, setWarmupChecked] = useState<boolean[]>(WARMUP_ITEMS.map(() => false))
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -188,17 +196,42 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
       )
     }
 
+    let restDuration: number
     if (mode === 'straight' || inFinisher) {
-      setRestSeconds(activeExercise.restSeconds)
+      restDuration = activeExercise.restSeconds
     } else {
       // Was the partner exercise still waiting on this same round? If so,
       // it's a quick switch; otherwise the round just finished.
       const partner = activeExercise.id === exerciseA?.id ? exerciseB : exerciseA
       const partnerCount = activeExercise.id === exerciseA?.id ? setsForB : setsForA
       const partnerStillPendingThisRound = partner ? partnerCount < setNumber && partnerCount < partner.setsTarget : false
-      setRestSeconds(partnerStillPendingThisRound ? SUPERSET_SHORT_REST : SUPERSET_LONG_REST)
+      restDuration = partnerStillPendingThisRound ? SUPERSET_SHORT_REST : SUPERSET_LONG_REST
     }
+    setRestSeconds(restDuration)
     setRestKey((k) => k + 1)
+    // Scheduled as a real push via ntfy (delivered server-side) so it still
+    // rings if the phone screen locks during the rest — an in-page timer
+    // alone gets suspended by the OS once the screen is off. Delayed a bit
+    // longer than the rest itself so that if the app stays open, RestTimer's
+    // onCancelPing has a window to cancel it before ntfy delivers it too
+    // (see cancelPendingRestPing — keeps it to exactly one ding either way).
+    if (notifyTopic) {
+      sendNotification(
+        notifyTopic,
+        '⏰ Rest over',
+        'Time for your next set!',
+        'alarm_clock',
+        restDuration + REST_PING_LEAD_SECONDS,
+      ).then((id) => {
+        pendingRestPingRef.current = id ? { topic: notifyTopic, id } : null
+      })
+    }
+  }
+
+  function cancelPendingRestPing() {
+    const pending = pendingRestPingRef.current
+    pendingRestPingRef.current = null
+    if (pending) cancelScheduledNotification(pending.topic, pending.id)
   }
 
   function handleRemoveLastSet() {
@@ -595,6 +628,7 @@ export default function Workout({ userId, onExit, onFinish }: WorkoutProps) {
           seconds={restSeconds}
           onDone={() => setRestSeconds(null)}
           onSkip={() => setRestSeconds(null)}
+          onCancelPing={cancelPendingRestPing}
         />
       )}
 
